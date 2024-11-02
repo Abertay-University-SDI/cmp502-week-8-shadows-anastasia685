@@ -21,6 +21,7 @@ public:
 protected:
 	bool render();
 	void depthPass();
+	void depthPass1();
 	void finalPass();
 	void gui();
 
@@ -29,11 +30,18 @@ private:
 	PlaneMesh* mesh;
 
 	Light* light;
+	Light* light1;
 	AModel* model;
 	ShadowShader* shadowShader;
 	DepthShader* depthShader;
 
 	ShadowMap* shadowMap;
+	ShadowMap* shadowMap1;
+
+	RenderTexture* renderTexture;
+	RenderTexture* renderTexture1;
+	OrthoMesh* orthoMesh;
+	OrthoMesh* orthoMesh1;
 };
 
 #endif

@@ -7,16 +7,26 @@ void Light::generateViewMatrix()
 {
 	// default up vector
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f);
-	if (direction.y == 1 || (direction.x == 0 && direction.z == 0))
+
+	XMVECTOR dir = XMVectorSet(direction.x, direction.y, direction.z, 1.0f);
+	dir = XMVector3Normalize(dir);
+
+	/*if (direction.y == 1 || (direction.x == 0 && direction.z == 0))
 	{
 		up = XMVectorSet(0.0f, 0.0f, 1.0f, 1.0);
 	}
 	else if (direction.y == -1 || (direction.x == 0 && direction.z == 0))
 	{
 		up = XMVectorSet(0.0f, 0.0f, -1.0f, 1.0);
-	}
+	}*/
 	//XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f);
-	XMVECTOR dir = XMVectorSet(direction.x, direction.y, direction.z, 1.0f);
+	 
+	// cross product issues when dir and up align
+	if (fabs(XMVectorGetY(dir)) == 1.0f)
+	{
+		up = XMVectorSet(0.0f, 0.0f, XMVectorGetY(dir), 1.0f);
+	}
+
 	XMVECTOR right = XMVector3Cross(dir, up);
 	up = XMVector3Cross(right, dir);
 	// Create the view matrix from the three vectors.

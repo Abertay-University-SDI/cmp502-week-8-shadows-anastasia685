@@ -30,14 +30,28 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeigh
 
 	// This is your shadow map
 	shadowMap = new ShadowMap(renderer->getDevice(), shadowmapWidth, shadowmapHeight);
+	shadowMap1 = new ShadowMap(renderer->getDevice(), shadowmapWidth, shadowmapHeight);
 
 	// Configure directional light
 	light = new Light();
-	light->setAmbientColour(0.3f, 0.3f, 0.3f, 1.0f);
-	light->setDiffuseColour(1.0f, 1.0f, 1.0f, 1.0f);
-	light->setDirection(0.0f, -0.7f, 0.7f);
-	light->setPosition(0.f, 0.f, -10.f);
+	light->setAmbientColour(0.15f, 0.15f, 0.15f, 1.0f);
+	light->setDiffuseColour(0.5f, 0.5f, 0.5f, 1.0f);
+	light->setDirection(0.7f, -0.7f, 0.0f);
+	light->setPosition(-10.f, 0.f, 0.f);
 	light->generateOrthoMatrix((float)sceneWidth, (float)sceneHeight, 0.1f, 100.f);
+
+	light1 = new Light();
+	light1->setAmbientColour(0.15f, 0.15f, 0.15f, 1.0f);
+	light1->setDiffuseColour(0.5f, 0.5f, 0.5f, 1.0f);
+	light1->setDirection(-0.7f, -0.7f, 0.0f);
+	light1->setPosition(10.f, 0.f, 0.f);
+	light1->generateOrthoMatrix((float)sceneWidth, (float)sceneHeight, 0.1f, 100.f);
+
+
+	renderTexture = new RenderTexture(renderer->getDevice(), shadowmapWidth, shadowmapHeight, SCREEN_NEAR, SCREEN_DEPTH);
+	renderTexture1 = new RenderTexture(renderer->getDevice(), shadowmapWidth, shadowmapHeight, SCREEN_NEAR, SCREEN_DEPTH);
+	orthoMesh = new OrthoMesh(renderer->getDevice(), renderer->getDeviceContext(), screenHeight/3, screenHeight/3, (screenWidth-screenHeight/3)/2, (screenHeight-screenHeight/3)/2);
+	orthoMesh1 = new OrthoMesh(renderer->getDevice(), renderer->getDeviceContext(), screenHeight/3, screenHeight/3, (screenWidth-screenHeight/3)/2, 0);
 
 }
 
@@ -76,6 +90,10 @@ bool App1::render()
 
 	// Perform depth pass
 	depthPass();
+
+	// Perform depth pass 1
+	depthPass1();
+
 	// Render scene
 	finalPass();
 
@@ -112,6 +130,36 @@ void App1::depthPass()
 	renderer->setBackBufferRenderTarget();
 	renderer->resetViewport();
 }
+void App1::depthPass1()
+{
+	// Set the render target to be the render to texture.
+	shadowMap1->BindDsvAndSetNullRenderTarget(renderer->getDeviceContext());
+
+	// get the world, view, and projection matrices from the camera and d3d objects.
+	light1->generateViewMatrix();
+	XMMATRIX lightViewMatrix = light1->getViewMatrix();
+	XMMATRIX lightProjectionMatrix = light1->getOrthoMatrix();
+	XMMATRIX worldMatrix = renderer->getWorldMatrix();
+
+	worldMatrix = XMMatrixTranslation(-50.f, 0.f, -10.f);
+	// Render floor
+	mesh->sendData(renderer->getDeviceContext());
+	depthShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, lightViewMatrix, lightProjectionMatrix);
+	depthShader->render(renderer->getDeviceContext(), mesh->getIndexCount());
+
+	worldMatrix = renderer->getWorldMatrix();
+	worldMatrix = XMMatrixTranslation(0.f, 7.f, 5.f);
+	XMMATRIX scaleMatrix = XMMatrixScaling(0.5f, 0.5f, 0.5f);
+	worldMatrix = XMMatrixMultiply(worldMatrix, scaleMatrix);
+	// Render model
+	model->sendData(renderer->getDeviceContext());
+	depthShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, lightViewMatrix, lightProjectionMatrix);
+	depthShader->render(renderer->getDeviceContext(), model->getIndexCount());
+
+	// Set back buffer as render target and reset view port.
+	renderer->setBackBufferRenderTarget();
+	renderer->resetViewport();
+}
 
 void App1::finalPass()
 {
@@ -124,11 +172,14 @@ void App1::finalPass()
 	XMMATRIX viewMatrix = camera->getViewMatrix();
 	XMMATRIX projectionMatrix = renderer->getProjectionMatrix();
 
+	ID3D11ShaderResourceView* depthMaps[LIGHT_COUNT] = { shadowMap->getDepthMapSRV(), shadowMap1->getDepthMapSRV() };
+	Light* lights[LIGHT_COUNT] = { light, light1 };
+
 	worldMatrix = XMMatrixTranslation(-50.f, 0.f, -10.f);
 	// Render floor
 	mesh->sendData(renderer->getDeviceContext());
 	shadowShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, 
-		textureMgr->getTexture(L"brick"), shadowMap->getDepthMapSRV(), light);
+		textureMgr->getTexture(L"brick"), depthMaps, lights);
 	shadowShader->render(renderer->getDeviceContext(), mesh->getIndexCount());
 
 	// Render model
@@ -137,8 +188,27 @@ void App1::finalPass()
 	XMMATRIX scaleMatrix = XMMatrixScaling(0.5f, 0.5f, 0.5f);
 	worldMatrix = XMMatrixMultiply(worldMatrix, scaleMatrix);
 	model->sendData(renderer->getDeviceContext());
-	shadowShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"brick"), shadowMap->getDepthMapSRV(), light);
+	shadowShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"brick"), depthMaps, lights);
 	shadowShader->render(renderer->getDeviceContext(), model->getIndexCount());
+
+
+
+	// Render shadow maps
+	renderer->setZBuffer(false);
+
+	worldMatrix = renderer->getWorldMatrix();
+	viewMatrix = camera->getOrthoViewMatrix();
+	projectionMatrix = renderer->getOrthoMatrix();
+
+	orthoMesh->sendData(renderer->getDeviceContext());
+	textureShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, shadowMap->getDepthMapSRV());
+	textureShader->render(renderer->getDeviceContext(), orthoMesh->getIndexCount());
+
+	orthoMesh1->sendData(renderer->getDeviceContext());
+	textureShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, shadowMap1->getDepthMapSRV());
+	textureShader->render(renderer->getDeviceContext(), orthoMesh1->getIndexCount());
+
+	renderer->setZBuffer(true);
 
 	gui();
 	renderer->endScene();
@@ -156,6 +226,14 @@ void App1::gui()
 	// Build UI
 	ImGui::Text("FPS: %.2f", timer->getFPS());
 	ImGui::Checkbox("Wireframe mode", &wireframeToggle);
+
+	XMFLOAT3 lightDirection = light->getDirection();
+	ImGui::SliderFloat3("Light Direction:", &lightDirection.x, -1, 1);
+	light->setDirection(lightDirection.x, lightDirection.y, lightDirection.z);
+
+	XMFLOAT3 lightDirection1 = light1->getDirection();
+	ImGui::SliderFloat3("Light 1 Direction:", &lightDirection1.x, -1, 1);
+	light1->setDirection(lightDirection1.x, lightDirection1.y, lightDirection1.z);
 
 	// Render UI
 	ImGui::Render();
