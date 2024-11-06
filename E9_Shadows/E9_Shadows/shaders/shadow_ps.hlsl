@@ -9,7 +9,7 @@ cbuffer LightBuffer : register(b0)
 {
 	float4 ambient[2];
 	float4 diffuse[2];
-	float4 direction[2];
+	float3 direction[2];
 };
 
 struct InputType
@@ -82,7 +82,7 @@ float4 main(InputType input) : SV_TARGET
             if (!isInShadow(depthMapTextures[i], pTexCoord, input.lightViewPos[i], shadowMapBias))
             {
             // is NOT in shadow, therefore light
-                colour += calculateLighting(-normalize(direction[i].xyz), input.normal, diffuse[i]);
+                colour += calculateLighting(-normalize(direction[i]), input.normal, diffuse[i]);
             }
         }
         

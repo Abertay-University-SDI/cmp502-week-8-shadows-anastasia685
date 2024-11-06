@@ -231,6 +231,10 @@ void App1::gui()
 	ImGui::SliderFloat3("Light Direction:", &lightDirection.x, -1, 1);
 	light->setDirection(lightDirection.x, lightDirection.y, lightDirection.z);
 
+	XMFLOAT3 lightPosition = light->getPosition();
+	ImGui::SliderFloat3("Light Position:", &lightPosition.x, -20, 20);
+	light->setPosition(lightPosition.x, lightPosition.y, lightPosition.z);
+
 	XMFLOAT3 lightDirection1 = light1->getDirection();
 	ImGui::SliderFloat3("Light 1 Direction:", &lightDirection1.x, -1, 1);
 	light1->setDirection(lightDirection1.x, lightDirection1.y, lightDirection1.z);

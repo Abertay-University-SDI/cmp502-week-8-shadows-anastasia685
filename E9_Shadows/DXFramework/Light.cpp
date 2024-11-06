@@ -21,7 +21,7 @@ void Light::generateViewMatrix()
 	}*/
 	//XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 1.0f);
 	 
-	// cross product issues when dir and up align
+	// ig cross product issues when dir and up align
 	if (fabs(XMVectorGetY(dir)) == 1.0f)
 	{
 		up = XMVectorSet(0.0f, 0.0f, XMVectorGetY(dir), 1.0f);
